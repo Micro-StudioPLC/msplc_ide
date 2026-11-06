@@ -1,0 +1,6 @@
+{
+  "name": "Web MCU Studio — Embedded C++ IDE, Simulator & Flasher",
+  "description": "Open-source web-based embedded IDE, C++ compiler pipeline, interactive PLC/MCU hardware simulator, and direct WebSerial USB flasher.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
