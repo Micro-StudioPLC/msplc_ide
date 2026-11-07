@@ -153,7 +153,10 @@ export class CompilerEngine {
     let baseFlash = 1840; // AVR base boot runtime
     let baseRam = 178;
 
-    if (targetBoard.id === 'esp32_gateway') {
+    if (targetBoard.id === 'mspv1') {
+      baseFlash = 2048;
+      baseRam = 256;
+    } else if (targetBoard.id === 'esp32_gateway') {
       baseFlash = 245760; // FreeRTOS + WiFi stack base
       baseRam = 24500;
     } else if (targetBoard.id === 'rp2040_pico') {
@@ -182,14 +185,13 @@ export class CompilerEngine {
 
     // 7. Generate Symbol Table
     const symbols = [
-      { name: '__vectors', address: '0x00000000', size: 104, section: '.vectors' },
-      { name: '__init', address: '0x00000068', size: 48, section: '.init' },
-      { name: 'setup', address: '0x00000098', size: 84, section: '.text' },
-      { name: 'loop', address: '0x000000EC', size: 142, section: '.text' },
-      { name: 'Serial_begin', address: '0x0000017A', size: 126, section: '.text.Serial' },
-      { name: 'digitalWrite', address: '0x000001F8', size: 92, section: '.text.wiring' },
-      { name: 'millis', address: '0x00000254', size: 38, section: '.text.wiring' },
-      { name: '__bss_start', address: '0x00800100', size: ramUsedBytes, section: '.bss' }
+      { name: '__il_vectors', address: '0x00000000', size: 32, section: '.il.vectors' },
+      { name: '__il_init', address: '0x00000020', size: 16, section: '.il.init' },
+      { name: 'setup', address: '0x00000030', size: 64, section: '.il.text' },
+      { name: 'loop', address: '0x00000070', size: 96, section: '.il.text' },
+      { name: 'IL_UART_INIT', address: '0x00000100', size: 48, section: '.il.text.gateway' },
+      { name: 'IL_SET_PIN', address: '0x00000130', size: 32, section: '.il.text.hal' },
+      { name: '__il_ram_base', address: '0x00008000', size: ramUsedBytes, section: '.il.data' }
     ];
 
     return {
@@ -247,6 +249,34 @@ function generateIntelHex(totalBytes: number): string {
  * Generates assembly disassembly for the target architecture
  */
 function generateDisassembly(target: TargetBoard, sourceCode: string): string[] {
+  if (target.id === 'mspv1') {
+    return [
+      '; --- Disassembly listing (MSPv1 Intermediary Binary Language Specification) ---',
+      '; Target: MSPv1 Virtual Core | Instruction Width: Variable Bytecode',
+      '; Magic Header: 0x4D 0x53 0x50 0x31 [MSP1] | VM Version: 1.0.4',
+      '',
+      '.section .il.vectors',
+      '00000000 <__il_header>:',
+      '   0: 4d 53 70 31   MAGIC_IL   "MSP1"       ; Intermediary Binary Identifier',
+      '   4: 01 00 00 00   IL_SPEC    0x0001       ; Spec Revision v1.0',
+      '   8: 30 00 00 00   IL_ENTRY   0x0030       ; Setup Entry Address',
+      '',
+      '.section .il.text.setup',
+      '00000030 <setup>:',
+      '  30: 10 0d 01      IL_PINMODE 0x0D, 0x01   ; Set Pin 13 to OUTPUT',
+      '  33: 18 00 c2 01   IL_UART_INIT 115200     ; Initialize UART Gateway',
+      '  37: 1f            IL_RET                  ; Return from setup block',
+      '',
+      '.section .il.text.loop',
+      '00000040 <loop>:',
+      '  40: 20 0d 01      IL_SET_PIN 0x0D, 0x01   ; Pin 13 HIGH',
+      '  43: 35 f4 01      IL_VTIMER_WAIT 500      ; Wait 500 ms',
+      '  46: 20 0d 00      IL_SET_PIN 0x0D, 0x00   ; Pin 13 LOW',
+      '  49: 35 f4 01      IL_VTIMER_WAIT 500      ; Wait 500 ms',
+      '  4c: 05 40 00      IL_JMP     0x0040       ; Loop re-entry'
+    ];
+  }
+
   if (target.id === 'esp32_gateway') {
     return [
       '; --- Disassembly listing (Xtensa LX6 32-bit Architecture) ---',

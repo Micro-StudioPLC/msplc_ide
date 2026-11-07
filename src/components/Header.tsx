@@ -1,8 +1,8 @@
-import React from 'react';
-import { Cpu, Play, Pause, Zap, HardDrive, BookOpen, Download, RefreshCw, CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Cpu, Play, Pause, Zap, HardDrive, Download, RefreshCw, CheckCircle, AlertTriangle, User, LogOut, FileJson, Leaf, FolderOpen, Save } from 'lucide-react';
 import { TargetBoard, TargetBoardId } from '../types/embedded';
 import { TARGET_BOARDS } from '../data/boards';
-import { EXAMPLES } from '../data/examples';
+import { User as UserType } from '../types/auth';
 
 interface HeaderProps {
   currentTarget: TargetBoard;
@@ -16,9 +16,13 @@ interface HeaderProps {
   onResetSimulate: () => void;
   onFlashTarget: () => void;
   isFlashing: boolean;
-  onLoadExample: (exampleId: string) => void;
+  onOpenCode: (code: string, fileName?: string) => void;
+  onSaveCode: () => void;
   onDownloadSketch: () => void;
-  activeExampleId?: string;
+  currentUser: UserType | null;
+  onOpenLogin: () => void;
+  onLogout: () => void;
+  onOpenUsersJsonViewer: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,16 +37,40 @@ export const Header: React.FC<HeaderProps> = ({
   onResetSimulate,
   onFlashTarget,
   isFlashing,
-  onLoadExample,
+  onOpenCode,
+  onSaveCode,
   onDownloadSketch,
-  activeExampleId
+  currentUser,
+  onOpenLogin,
+  onLogout,
+  onOpenUsersJsonViewer
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      if (content !== undefined) {
+        onOpenCode(content, file.name);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset so reopening the same file works
+  };
+
   return (
     <header className="h-14 bg-[#161b22] border-b border-[#30363d] px-4 flex items-center justify-between gap-4 select-none shrink-0 z-30">
       {/* Zone 1: Brand Wordmark */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-          <Cpu className="w-4 h-4" />
+        <div className="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <Leaf className="w-4 h-4" />
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
@@ -54,11 +82,40 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Zone 2: Navigation, Target selector & Examples */}
-      <div className="hidden lg:flex items-center gap-3">
-        {/* Target Board Selector */}
-        <div className="flex items-center gap-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg px-2 py-1 text-xs">
-          <HardDrive className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+      {/* Zone 2: Open / Save buttons, Target Controller selector */}
+      <div className="hidden lg:flex items-center gap-2.5">
+        {/* Hidden file input for Open */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".ino,.cpp,.c,.msp,.txt,.h"
+          className="hidden"
+        />
+
+        {/* Open Button (to the left of Target list) */}
+        <button
+          onClick={handleOpenClick}
+          title="Open code file from computer (.msp, .ino, .cpp)"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
+        >
+          <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+          <span>Open</span>
+        </button>
+
+        {/* Save Button (to the left of Target list) */}
+        <button
+          onClick={onSaveCode}
+          title="Save code to computer"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
+        >
+          <Save className="w-3.5 h-3.5 text-blue-400" />
+          <span>Save</span>
+        </button>
+
+        {/* Target Controller Selector: Only Intermediary Language Specs (MSPv1) */}
+        <div className="flex items-center gap-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg px-2.5 py-1 text-xs">
+          <HardDrive className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span className="text-slate-400 text-[11px]">Target:</span>
           <select
             value={currentTarget.id}
@@ -66,59 +123,49 @@ export const Header: React.FC<HeaderProps> = ({
               const selected = TARGET_BOARDS.find(b => b.id === (e.target.value as TargetBoardId));
               if (selected) onSelectTarget(selected);
             }}
-            className="bg-transparent text-slate-200 text-xs font-medium focus:outline-none cursor-pointer pr-1"
+            className="bg-transparent text-emerald-300 text-xs font-semibold focus:outline-none cursor-pointer pr-1"
           >
             {TARGET_BOARDS.map((board) => (
               <option key={board.id} value={board.id} className="bg-[#161b22] text-slate-200">
-                {board.name} ({board.mcu})
+                {board.name}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Examples Dropdown */}
-        <div className="flex items-center gap-1.5 bg-[#0d1117] border border-[#30363d] rounded-lg px-2 py-1 text-xs">
-          <BookOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="text-slate-400 text-[11px]">Sketches:</span>
-          <select
-            value={activeExampleId || ''}
-            onChange={(e) => {
-              if (e.target.value) onLoadExample(e.target.value);
-            }}
-            className="bg-transparent text-slate-200 text-xs font-medium focus:outline-none cursor-pointer max-w-[190px] truncate"
-          >
-            <option value="" disabled className="bg-[#161b22] text-slate-400">Load PLC / MCU Sketch...</option>
-            {EXAMPLES.map((ex) => (
-              <option key={ex.id} value={ex.id} className="bg-[#161b22] text-slate-200">
-                {ex.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Export / Download Sketch */}
+        {/* Export Binary / Source */}
         <button
           onClick={onDownloadSketch}
-          title="Download C++ Source (.ino)"
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors"
+          title="Export code file"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Export</span>
         </button>
+
+        {/* Inspect users.json button */}
+        <button
+          onClick={onOpenUsersJsonViewer}
+          title="Inspect data/users.json database"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-emerald-300 hover:text-emerald-100 bg-emerald-950/40 hover:bg-emerald-900/60 rounded-lg border border-emerald-700/40 transition-colors cursor-pointer"
+        >
+          <FileJson className="w-3.5 h-3.5 text-emerald-400" />
+          <span>users.json</span>
+        </button>
       </div>
 
-      {/* Zone 3: The 3-Button Pipeline */}
+      {/* Zone 3: The 3-Button Pipeline + User Profile */}
       <div className="flex items-center gap-2 shrink-0">
         {/* 1. COMPILE BUTTON */}
         <button
           onClick={onCompile}
           disabled={isCompiling}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ${
             isCompiling
               ? 'bg-blue-800 text-blue-200 cursor-wait'
               : 'bg-blue-600 hover:bg-blue-500 text-white'
           }`}
-          title="Verify and build native C++ binaries"
+          title="Verify and build Intermediary Binary Language"
         >
           <Cpu className={`w-3.5 h-3.5 ${isCompiling ? 'animate-spin' : ''}`} />
           <span>{isCompiling ? 'Compiling...' : '⚙️ Compile'}</span>
@@ -130,7 +177,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={onToggleSimulate}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ${
               isSimulating
                 ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40'
                 : 'bg-emerald-700/80 hover:bg-emerald-600 text-emerald-50'
@@ -145,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onResetSimulate}
               title="Reset MCU Execution State"
-              className="p-1.5 text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white bg-[#21262d] hover:bg-[#30363d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -156,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onFlashTarget}
           disabled={isFlashing}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ${
             isFlashing
               ? 'bg-amber-600 text-white animate-pulse'
               : 'bg-amber-600/90 hover:bg-amber-500 text-white'
@@ -166,6 +213,40 @@ export const Header: React.FC<HeaderProps> = ({
           <Zap className="w-3.5 h-3.5 text-amber-200" />
           <span>{isFlashing ? 'Flashing...' : '🔌 Flash'}</span>
         </button>
+
+        {/* User Account / Profile */}
+        <div className="h-5 w-[1px] bg-[#30363d] mx-1" />
+
+        {currentUser ? (
+          <div className="flex items-center gap-2 bg-[#0d1f17] border border-emerald-600/40 rounded-lg px-2.5 py-1">
+            <div className="w-6 h-6 rounded-full bg-emerald-700 text-emerald-100 flex items-center justify-center font-bold text-[11px]">
+              {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="hidden xl:flex flex-col text-left">
+              <span className="text-xs font-medium text-emerald-200 max-w-[100px] truncate leading-tight">
+                {currentUser.name}
+              </span>
+              <span className="text-[9px] font-mono text-emerald-400/80 leading-none">
+                {currentUser.role ? currentUser.role.split(' ')[0] : 'Engineer'}
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="p-1 text-emerald-400/70 hover:text-rose-400 hover:bg-emerald-950/80 rounded transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpenLogin}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-500/40 transition-colors shadow-sm cursor-pointer"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Sign In</span>
+          </button>
+        )}
       </div>
     </header>
   );

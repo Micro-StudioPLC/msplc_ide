@@ -3,6 +3,8 @@ import confetti from 'canvas-confetti';
 import { TARGET_BOARDS } from './data/boards';
 import { EXAMPLES } from './data/examples';
 import { TargetBoard, CompilationResult, SimulationState, WebSerialStatus } from './types/embedded';
+import { User } from './types/auth';
+import { AuthService } from './services/authService';
 import { CompilerEngine } from './services/compilerEngine';
 import { SimulatorRuntime } from './services/simulatorRuntime';
 import { webSerialFlasher } from './services/webSerialFlasher';
@@ -10,13 +12,19 @@ import { Header } from './components/Header';
 import { CodeEditor } from './components/CodeEditor';
 import { HardwareBoard } from './components/HardwareBoard';
 import { BottomConsole } from './components/BottomConsole';
+import { LoginPage } from './components/LoginPage';
+import { UsersJsonModal } from './components/UsersJsonModal';
 
 export default function App() {
+  // Authentication & User State
+  const [currentUser, setCurrentUser] = useState<User | null>(() => AuthService.getCurrentUser());
+  const [isLoginOpen, setIsLoginOpen] = useState<boolean>(() => !AuthService.getCurrentUser());
+  const [isUsersJsonOpen, setIsUsersJsonOpen] = useState<boolean>(false);
+
   // Target Microcontroller / PLC Board
   const [currentTarget, setCurrentTarget] = useState<TargetBoard>(TARGET_BOARDS[0]);
   
   // Active Sketch Code
-  const [activeExampleId, setActiveExampleId] = useState<string>(EXAMPLES[0].id);
   const [code, setCode] = useState<string>(EXAMPLES[0].code);
 
   // Compiler State
@@ -91,23 +99,6 @@ export default function App() {
     setCompilation(res);
   };
 
-  // Load Example Sketch
-  const handleLoadExample = (exampleId: string) => {
-    const ex = EXAMPLES.find(e => e.id === exampleId);
-    if (!ex) return;
-    setActiveExampleId(exampleId);
-    setCode(ex.code);
-    const target = TARGET_BOARDS.find(b => b.id === ex.target) || TARGET_BOARDS[0];
-    setCurrentTarget(target);
-    if (simRuntimeRef.current) {
-      simRuntimeRef.current.updateTargetBoard(target);
-      if (simState.isRunning) {
-        simRuntimeRef.current.start(ex.code);
-      }
-    }
-    const res = CompilerEngine.compile(ex.code, target);
-    setCompilation(res);
-  };
 
   // Compile Pipeline Action
   const handleCompile = () => {
@@ -180,21 +171,78 @@ export default function App() {
     }
   };
 
-  // Download .ino sketch
+  // Open code from file
+  const handleOpenCode = (newCode: string, fileName?: string) => {
+    setCode(newCode);
+    if (simState.isRunning && simRuntimeRef.current) {
+      simRuntimeRef.current.start(newCode);
+    }
+    const res = CompilerEngine.compile(newCode, currentTarget);
+    setCompilation(res);
+  };
+
+  // Save code to file (.msp / .ino)
+  const handleSaveCode = () => {
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sketch_${currentTarget.id.toLowerCase()}.msp`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Download / Export sketch
   const handleDownloadSketch = () => {
     const blob = new Blob([code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${currentTarget.id}_sketch.ino`;
+    a.download = `sketch_${currentTarget.id.toLowerCase()}.msp`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Jump to error line
-  const handleJumpToLine = (line: number) => {
-    // line indicator is highlighted in CodeEditor
+  // User Authentication Handlers
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setIsLoginOpen(false);
   };
+
+  const handleExploreGuest = () => {
+    const guestUser: User = {
+      id: 'usr_guest',
+      name: 'Eco-Automation Guest',
+      email: 'guest@naturemcu.io',
+      role: 'Guest Engineer',
+      createdAt: new Date().toISOString()
+    };
+    setCurrentUser(guestUser);
+    setIsLoginOpen(false);
+  };
+
+  const handleLogout = () => {
+    AuthService.logout();
+    setCurrentUser(null);
+    setIsLoginOpen(true);
+  };
+
+  // Render Login Page when open
+  if (isLoginOpen) {
+    return (
+      <>
+        <LoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onExploreGuest={handleExploreGuest}
+          onOpenUsersJsonViewer={() => setIsUsersJsonOpen(true)}
+        />
+        <UsersJsonModal
+          isOpen={isUsersJsonOpen}
+          onClose={() => setIsUsersJsonOpen(false)}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1117] text-slate-200">
@@ -211,9 +259,13 @@ export default function App() {
         onResetSimulate={handleResetSimulate}
         onFlashTarget={handleFlashTarget}
         isFlashing={isFlashing}
-        onLoadExample={handleLoadExample}
+        onOpenCode={handleOpenCode}
+        onSaveCode={handleSaveCode}
         onDownloadSketch={handleDownloadSketch}
-        activeExampleId={activeExampleId}
+        currentUser={currentUser}
+        onOpenLogin={() => setIsLoginOpen(true)}
+        onLogout={handleLogout}
+        onOpenUsersJsonViewer={() => setIsUsersJsonOpen(true)}
       />
 
       {/* 2. Workspace: Code Editor (Left) & Simulated Hardware View (Right) */}
@@ -259,7 +311,12 @@ export default function App() {
         onFlashTarget={handleFlashTarget}
         onToggleLoopback={(enabled) => webSerialFlasher.setLoopbackMock(enabled)}
         onSetBaudRate={(baud) => webSerialFlasher.setBaudRate(baud)}
-        onJumpToLine={handleJumpToLine}
+      />
+
+      {/* 4. Users JSON Inspector Modal */}
+      <UsersJsonModal
+        isOpen={isUsersJsonOpen}
+        onClose={() => setIsUsersJsonOpen(false)}
       />
     </div>
   );

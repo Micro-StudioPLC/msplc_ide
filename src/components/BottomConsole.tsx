@@ -280,7 +280,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
                       <div>
                         <span className="font-semibold text-emerald-300">Compilation Successful</span>
                         <div className="text-[11px] text-emerald-400/80">
-                          Built binaries for {targetBoard.name} in {compilation.compileTimeMs}ms at {compilation.timestamp}.
+                          Built Intermediary Binary Language for {targetBoard.name} in {compilation.compileTimeMs}ms at {compilation.timestamp}.
                         </div>
                       </div>
                     </div>
@@ -356,7 +356,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
             {/* Right: Intel HEX Record */}
             <div className="overflow-y-auto p-3">
               <div className="text-[11px] font-bold text-slate-400 uppercase mb-2">
-                Intel HEX Firmware Payload
+                MSPv1 Intermediary Binary Payload (Intel HEX)
               </div>
               {compilation && compilation.intelHex ? (
                 <div className="text-blue-300 select-text leading-tight whitespace-pre">

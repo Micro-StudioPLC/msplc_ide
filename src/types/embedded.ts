@@ -1,4 +1,4 @@
-export type TargetBoardId = 'arduino_uno' | 'esp32_gateway' | 'industrial_plc' | 'rp2040_pico';
+export type TargetBoardId = 'mspv1' | 'industrial_plc' | 'arduino_uno' | 'esp32_gateway' | 'rp2040_pico';
 
 export interface TargetBoard {
   id: TargetBoardId;

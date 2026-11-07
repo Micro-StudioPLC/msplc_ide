@@ -1,0 +1,26 @@
+[
+  {
+    "id": "usr_seed_1",
+    "name": "Flora Greenwood",
+    "email": "flora.greenwood@naturemcu.io",
+    "password": "Password123!",
+    "role": "IoT & Eco-Automation Engineer",
+    "createdAt": "2026-11-06T14:00:00.000Z"
+  },
+  {
+    "id": "usr_seed_2",
+    "name": "Jean-Francois Simon",
+    "email": "jfsimon1981@gmail.com",
+    "password": "Password123!",
+    "role": "PLC Automation Lead",
+    "createdAt": "2026-11-06T14:30:00.000Z"
+  },
+  {
+    "id": "usr_1794005043937_hahst",
+    "name": "Alex Rivers",
+    "email": "alex.rivers@naturemcu.io",
+    "password": "SecurePassword123",
+    "role": "Solar & Battery PLC Lead",
+    "createdAt": "2026-11-06T22:44:03.937Z"
+  }
+]

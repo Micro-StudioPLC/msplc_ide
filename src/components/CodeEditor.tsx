@@ -26,6 +26,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [activeTab, setActiveTab] = useState<'main' | 'pins' | 'config'>('main');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
 
   const [pinsHeader] = useState(`// ========================================================
 // PLC & Microcontroller I/O Pin Map
@@ -73,11 +74,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // Sync scroll
   const handleScroll = () => {
-    if (textareaRef.current && preRef.current) {
-      preRef.current.scrollTop = textareaRef.current.scrollTop;
-      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    if (textareaRef.current) {
+      const top = textareaRef.current.scrollTop;
+      const left = textareaRef.current.scrollLeft;
+      if (preRef.current) {
+        preRef.current.scrollTop = top;
+        preRef.current.scrollLeft = left;
+      }
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.scrollTop = top;
+      }
     }
   };
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const sync = () => {
+      const top = textarea.scrollTop;
+      const left = textarea.scrollLeft;
+      if (preRef.current) {
+        preRef.current.scrollTop = top;
+        preRef.current.scrollLeft = left;
+      }
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.scrollTop = top;
+      }
+    };
+    textarea.addEventListener('scroll', sync, { passive: true });
+    return () => textarea.removeEventListener('scroll', sync);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -208,7 +234,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       {/* Editor Body */}
       <div className="relative flex-1 overflow-hidden flex">
         {/* Line Numbers Column */}
-        <div className="w-12 bg-[#0d1117] border-r border-[#21262d] py-3 text-right pr-2.5 text-[12px] font-mono text-slate-600 select-none shrink-0 overflow-hidden">
+        <div
+          ref={lineNumbersRef}
+          className="w-12 bg-[#0d1117] border-r border-[#21262d] py-3 text-right pr-2.5 text-[12px] font-mono text-slate-600 select-none shrink-0 overflow-hidden"
+        >
           {lines.map((_, i) => {
             const lineNum = i + 1;
             const hasError = errors.some(e => e.line === lineNum);
